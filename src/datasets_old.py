@@ -5,16 +5,17 @@ from typing import Tuple
 from termcolor import cprint
 
 class ThingsMEGDataset(torch.utils.data.Dataset):
-    def __init__(self, split: str, data_dir: str = "data_spl", id: str = "_0") -> None:
+    def __init__(self, split: str, data_dir: str = "data") -> None:
         super().__init__()
         assert split in ["train", "val", "test"], f"Invalid split: {split}"
         self.split = split
         self.num_classes = 1854
         
-        self.X = torch.load(os.path.join(data_dir, f"{split}_X"+id+".pt"))
+        self.X = torch.load(os.path.join(data_dir, f"{split}_X.pt"))
+        self.subject_idxs = torch.load(os.path.join(data_dir, f"{split}_subject_idxs.pt"))
         
         if split in ["train", "val"]:
-            self.y = torch.load(os.path.join(data_dir, f"{split}_y"+id+".pt"))
+            self.y = torch.load(os.path.join(data_dir, f"{split}_y.pt"))
             assert len(torch.unique(self.y)) == self.num_classes, "Number of classes do not match."
 
     def __len__(self) -> int:
@@ -22,9 +23,9 @@ class ThingsMEGDataset(torch.utils.data.Dataset):
 
     def __getitem__(self, i):
         if hasattr(self, "y"):
-            return self.X[i], self.y[i]
+            return self.X[i], self.y[i], self.subject_idxs[i]
         else:
-            return self.X[i]
+            return self.X[i], self.subject_idxs[i]
         
     @property
     def num_channels(self) -> int:
@@ -34,19 +35,19 @@ class ThingsMEGDataset(torch.utils.data.Dataset):
     def seq_len(self) -> int:
         return self.X.shape[2]
 
-class ThingsMEGDataset_aug1(torch.utils.data.Dataset):
-    def __init__(self, split: str, data_dir: str = "data_spl", id: str = "_0", transform=None) -> None:
+class ThingsMEGDataset_test1(torch.utils.data.Dataset):
+    def __init__(self, split: str, data_dir: str = "data", transform=None) -> None:
         super().__init__()
         self.transform = transform
         assert split in ["train", "val", "test"], f"Invalid split: {split}"
         self.split = split
         self.num_classes = 1854
-
-        # 4108x271x281
-        self.X = torch.load(os.path.join(data_dir, f"{split}_X"+id+".pt"))
+        
+        self.X = torch.load(os.path.join(data_dir, f"{split}_X.pt"))
+        self.subject_idxs = torch.load(os.path.join(data_dir, f"{split}_subject_idxs.pt"))
         
         if split in ["train", "val"]:
-            self.y = torch.load(os.path.join(data_dir, f"{split}_y"+id+".pt"))
+            self.y = torch.load(os.path.join(data_dir, f"{split}_y.pt"))
             assert len(torch.unique(self.y)) == self.num_classes, "Number of classes do not match."
 
     def __len__(self) -> int:
@@ -59,16 +60,14 @@ class ThingsMEGDataset_aug1(torch.utils.data.Dataset):
             out_X=self.X[i]
 
         if hasattr(self, "y"):
-            return out_X, self.y[i]
+            return out_X, self.y[i], self.subject_idxs[i]
         else:
-            return out_X
+            return out_X, self.subject_idxs[i]
         
     @property
-    def num_channels(self) -> int:  #271-->128
-        return 128
-        #return self.X.shape[1]
+    def num_channels(self) -> int:
+        return self.X.shape[1]
     
     @property
-    def seq_len(self) -> int:  #281-->281
-        return 281
-        #return self.X.shape[2]
+    def seq_len(self) -> int:
+        return self.X.shape[2]

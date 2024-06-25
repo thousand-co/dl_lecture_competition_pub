@@ -10,8 +10,7 @@ from termcolor import cprint
 from tqdm import tqdm
 
 from src.dataug import DatAugmentation
-#from src.datasets import ThingsMEGDataset
-from src.datasets import ThingsMEGDataset_aug1
+from src.datasets import ThingsMEGDataset
 from src.models import BasicConvClassifier
 from src.utils import set_seed
 
@@ -33,28 +32,25 @@ def run(args: DictConfig):
     if args.use_wandb:
         wandb.init(mode="online", dir=logdir, project="MEG-classification")
 
-    id="_0"
     # Data Augmentation
-    transform_train=DatAugmentation()
-    transform_valid=DatAugmentation()
-    transform_test=DatAugmentation()
-    #transform_train=transforms.Compose([transforms.ToTensor()])
-    #transform_valid=transforms.Compose([transforms.ToTensor()])
-    #transform_test=transforms.Compose([transforms.ToTensor()])
+    #transform_train=DatAugmentation()
+    transform_train=transforms.Compose([transforms.ToTensor()])
+    transform_valid=transforms.Compose([transforms.ToTensor()])
+    transform_test=transforms.Compose([transforms.ToTensor()])
 
     # ------------------
     #    Dataloader
     # ------------------
     loader_args = {"batch_size": args.batch_size, "num_workers": args.num_workers}
 
-    train_set = ThingsMEGDataset_aug1("train", args.data_dir, id, transform=transform_train)
-    #train_set = ThingsMEGDataset("train", args.data_dir, id)
+    #train_set = ThingsMEGDataset("train", args.data_dir, transform=transform_train)
+    train_set = ThingsMEGDataset("train", args.data_dir)
     train_loader = torch.utils.data.DataLoader(train_set, shuffle=True, **loader_args)
-    val_set = ThingsMEGDataset_aug1("val", args.data_dir, id, transform=transform_valid)
-    #val_set = ThingsMEGDataset("val", args.data_dir, id)
+    #val_set = ThingsMEGDataset("val", args.data_dir, transform=transform_valid)
+    val_set = ThingsMEGDataset("val", args.data_dir)
     val_loader = torch.utils.data.DataLoader(val_set, shuffle=False, **loader_args)
-    test_set = ThingsMEGDataset_aug1("test", args.data_dir, id, transform=transform_test)
-    #test_set = ThingsMEGDataset("test", args.data_dir, id)
+    #test_set = ThingsMEGDataset("test", args.data_dir, transform=transform_test)
+    test_set = ThingsMEGDataset("test", args.data_dir)
     test_loader = torch.utils.data.DataLoader(test_set, shuffle=False, **loader_args)
 
     # ------------------
@@ -83,7 +79,7 @@ def run(args: DictConfig):
         train_loss, train_acc, val_loss, val_acc = [], [], [], []
         
         model.train()
-        for X, y in tqdm(train_loader, desc="Train"):
+        for X, y, subject_idxs in tqdm(train_loader, desc="Train"):
             X, y = X.to(args.device), y.to(args.device)
 
             y_pred = model(X)
@@ -99,7 +95,7 @@ def run(args: DictConfig):
             train_acc.append(acc.item())
 
         model.eval()
-        for X, y in tqdm(val_loader, desc="Validation"):
+        for X, y, subject_idxs in tqdm(val_loader, desc="Validation"):
             X, y = X.to(args.device), y.to(args.device)
             
             with torch.no_grad():
@@ -109,28 +105,28 @@ def run(args: DictConfig):
             val_acc.append(accuracy(y_pred, y).item())
 
         print(f"Epoch {epoch+1}/{args.epochs} | train loss: {np.mean(train_loss):.3f} | train acc: {np.mean(train_acc):.3f} | val loss: {np.mean(val_loss):.3f} | val acc: {np.mean(val_acc):.3f}")
-        torch.save(model.state_dict(), os.path.join(logdir, "model_last"+id+".pt"))
+        torch.save(model.state_dict(), os.path.join(logdir, "model_last.pt"))
         if args.use_wandb:
             wandb.log({"train_loss": np.mean(train_loss), "train_acc": np.mean(train_acc), "val_loss": np.mean(val_loss), "val_acc": np.mean(val_acc)})
         
         if np.mean(val_acc) > max_val_acc:
             cprint("New best.", "cyan")
-            torch.save(model.state_dict(), os.path.join(logdir, "model_best"+id+".pt"))
+            torch.save(model.state_dict(), os.path.join(logdir, "model_best.pt"))
             max_val_acc = np.mean(val_acc)
             
     
     # ----------------------------------
     #  Start evaluation with best model
     # ----------------------------------
-    model.load_state_dict(torch.load(os.path.join(logdir, "model_best"+id+".pt"), map_location=args.device))
+    model.load_state_dict(torch.load(os.path.join(logdir, "model_best.pt"), map_location=args.device))
 
     preds = [] 
     model.eval()
-    for X in tqdm(test_loader, desc="Validation"):        
+    for X, subject_idxs in tqdm(test_loader, desc="Validation"):        
         preds.append(model(X.to(args.device)).detach().cpu())
         
     preds = torch.cat(preds, dim=0).numpy()
-    np.save(os.path.join(logdir, "submission"+id), preds)
+    np.save(os.path.join(logdir, "submission"), preds)
     cprint(f"Submission {preds.shape} saved at {logdir}", "cyan")
 
 
