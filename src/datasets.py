@@ -53,7 +53,7 @@ class ThingsMEGDataset_aug1(torch.utils.data.Dataset):
         return len(self.X)
 
     def __getitem__(self, i):
-        if self.transform:
+        if self.transform is not None:
             out_X=self.transform(self.X[i])
         else:
             out_X=self.X[i]

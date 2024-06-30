@@ -9,9 +9,11 @@ import wandb
 from termcolor import cprint
 from tqdm import tqdm
 
-from src.datasets import ThingsMEGDataset
+from src.datasets import ThingsMEGDataset_aug1
 from src.models import BasicConvClassifier
 from src.utils import set_seed
+from src.dataug import DatAugmentation
+from src.models_res import ResNet, Bottleneck
 
 
 @torch.no_grad()
@@ -19,11 +21,18 @@ from src.utils import set_seed
 def run(args: DictConfig):
     set_seed(args.seed)
     savedir = os.path.dirname(args.model_path)
-    
+
+    #id_list=['_0', '_1', '_2', '_3']
+    #aug_list=['_normal', '_spectgram', '_spectgram_log', '_bandpass_l', '_bandpass_h']
+    aug='_normal'
+    id='_0'
+    ### Data Augmentation ###
+    transform_test=DatAugmentation(aug_sel=aug)
+
     # ------------------
     #    Dataloader
     # ------------------    
-    test_set = ThingsMEGDataset("test", args.data_dir)
+    test_set = ThingsMEGDataset_aug1("test", args.data_dir, id, transform=transform_test)
     test_loader = torch.utils.data.DataLoader(
         test_set, shuffle=False, batch_size=args.batch_size, num_workers=args.num_workers
     )
@@ -31,9 +40,10 @@ def run(args: DictConfig):
     # ------------------
     #       Model
     # ------------------
-    model = BasicConvClassifier(
-        test_set.num_classes, test_set.seq_len, test_set.num_channels
-    ).to(args.device)
+    #model = BasicConvClassifier(
+    #    test_set.num_classes, test_set.seq_len, test_set.num_channels
+    #).to(args.device)
+    model = ResNet(Bottleneck, [3, 4, 32, 3], num_classes=test_set.num_classes).to(args.device)
     model.load_state_dict(torch.load(args.model_path, map_location=args.device))
 
     # ------------------
@@ -41,11 +51,12 @@ def run(args: DictConfig):
     # ------------------ 
     preds = [] 
     model.eval()
-    for X, subject_idxs in tqdm(test_loader, desc="Validation"):        
+    #for X, subject_idxs in tqdm(test_loader, desc="Validation"):        
+    for X in tqdm(test_loader, desc="Validation"):        
         preds.append(model(X.to(args.device)).detach().cpu())
         
     preds = torch.cat(preds, dim=0).numpy()
-    np.save(os.path.join(savedir, "submission"), preds)
+    np.save(os.path.join(savedir, "submission"+aug+id), preds)
     cprint(f"Submission {preds.shape} saved at {savedir}", "cyan")
 
 
