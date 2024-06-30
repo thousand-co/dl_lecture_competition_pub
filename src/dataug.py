@@ -1,7 +1,7 @@
 import torch
 from  torchvision.transforms import v2
 from torchvision import transforms
-from torchaudio.transforms import MelSpectrogram
+from torchaudio.transforms import Spectrogram, MelSpectrogram
 import torch.nn as nn
 from torch import t
 from torch.nn import functional as F
@@ -35,15 +35,11 @@ def butter_bandpass_filter(data, lowcut, highcut, fs, order=5):
 class DatAugmentation(torch.utils.data.Dataset):
     def __init__(self, aug_sel='normal'):
         super().__init__()
-        self.spectgram = MelSpectrogram(sample_rate=1200)
-        #self.normalize = v2.Normalize(mean=[0.5], std=[0.5])
-        #self.resize = v2.Resize(size=512)
-        #self.transf = transforms.Normalize(mean=[0.5], std=[0.5])
-        #self.totensor = transforms.ToTensor()
+        self.melspectgram = MelSpectrogram(sample_rate=1200)
+        self.spectgram = Spectrogram()
         self.aug_sel = aug_sel
 
     def __call__(self, X):  # 271x281
-        X = X + 100
         if self.aug_sel=='_normal':
             X = F.adaptive_avg_pool1d(X, 512)
             X = F.adaptive_avg_pool1d(t(X), 512)
@@ -51,7 +47,7 @@ class DatAugmentation(torch.utils.data.Dataset):
             X = F.normalize(X)
             return X.float()
         elif self.aug_sel=='_spectgram':
-            X = self.spectgram(t(X))  # 281x128x2
+            X = self.melspectgram(t(X))  # 281x128x2
             X0 = t(X[:,:,0])  # 281x128
             X1 = t(X[:,:,1])  # 281x128
             X = torch.cat((X0, X1), 0)
@@ -61,7 +57,7 @@ class DatAugmentation(torch.utils.data.Dataset):
             X = F.normalize(X)
             return X.float()
         elif self.aug_sel=='_spectgram_log':
-            X = self.spectgram(t(X))  # 281x128x2
+            X = self.melspectgram(t(X))  # 281x128x2
             X0 = t(X.log2()[:,:,0])  # 281x128
             X1 = t(X.log2()[:,:,1])  # 281x128
             X = torch.cat((X0, X1), 0)
@@ -76,7 +72,7 @@ class DatAugmentation(torch.utils.data.Dataset):
             X = torch.cat((X0, X1), 0)
             X = F.adaptive_avg_pool1d(X, 512)
             X = F.adaptive_avg_pool1d(t(X), 512)
-            X = t(X) + torch.ones(512,512)*50
+            X = t(X)
             X = F.normalize(X)
             return X.float()
         elif self.aug_sel=='_bandpass_h':
@@ -85,6 +81,6 @@ class DatAugmentation(torch.utils.data.Dataset):
             X = torch.cat((X0, X1), 0)
             X = F.adaptive_avg_pool1d(X, 512)
             X = F.adaptive_avg_pool1d(t(X), 512)
-            X = t(X) + torch.ones(512,512)*50
+            X = t(X)
             X = F.normalize(X)
             return X.float()
