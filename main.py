@@ -14,9 +14,12 @@ from src.dataug import DatAugmentation
 from src.datasets import ThingsMEGDataset_aug1
 from src.models import BasicConvClassifier
 from src.models_res import Bottleneck, ResNet
-from src.utils import set_seed, set_lr, CosineScheduler
+#from src.models_wres import DoBottleneck, WideResNet
+#from src.models_effnet import EfficientNet_V2
+from src.utils import set_seed, set_lr, CosineScheduler, get_meanspect
 
 from torchvision import transforms, models
+from torchvision.models import efficientnet_v2_l
 import torchaudio
 import mne
 from scipy.signal import stft
@@ -35,8 +38,8 @@ def run(args: DictConfig):
         wandb.init(mode="online", dir=logdir, project="MEG-classification")
     id_list=['_0', '_1', '_2', '_3']
     #id_list=['_0']
-    #aug_list=['_normal', '_spectgram', '_spectgram_log', '_bandpass_l', '_bandpass_h']
-    aug_list=['_spectgram']
+    #aug_list=['_normal', '_spectgram', '_spectgram_log', '_bandpass_l', '_bandpass_40', '_filter99+spect', '_spectgram99', '_spectgram40', '_basel_scale_clip']
+    aug_list=['_basel_scale_clip']
     for aug in aug_list:
         for id in id_list:
             # Data Augmentation
@@ -68,12 +71,15 @@ def run(args: DictConfig):
             #    train_set.num_classes, train_set.seq_len, train_set.num_channels
             #).to(args.device)
 
-            model = ResNet(Bottleneck, [3, 4, 32, 3], num_classes=train_set.num_classes).to(args.device)
+            model = ResNet(Bottleneck, [3, 4, 8, 3], num_classes=train_set.num_classes).to(args.device)
+            #model = WideResNet(DoBottleneck, [3, 4, 32, 3], num_classes=train_set.num_classes).to(args.device)  # have error
+            #model = EfficientNet_V2(128).to(args.device)
 
             # ------------------
             #     Optimizer
             # ------------------
-            optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
+            #optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, amsgrad=True)
+            optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
 
             ### Scheduler ###
             scheduler = CosineScheduler(epochs=args.epochs, warmup_length=int(args.epochs*0.05), lr=args.lr)
