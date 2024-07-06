@@ -46,10 +46,8 @@ def run(args: DictConfig):
             # ------------------
             #       Model
             # ------------------
-            #model = BasicConvClassifier(
-            #    test_set.num_classes, test_set.seq_len, test_set.num_channels
-            #).to(args.device)
-            model = ResNet(Bottleneck, [3, 4, 32, 3], num_classes=test_set.num_classes).to(args.device)
+            model = BasicConvClassifier(test_set.num_classes, test_set.seq_len, test_set.num_channels).to(args.device)
+            #model = ResNet(Bottleneck, [3, 4, 32, 3], num_classes=test_set.num_classes).to(args.device)
             model.load_state_dict(torch.load(model_path+model_name+aug+id+'.pt', map_location=args.device))
 
             # ------------------
