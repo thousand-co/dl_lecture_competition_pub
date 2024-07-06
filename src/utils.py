@@ -1,6 +1,8 @@
 import random
 import numpy as np
 import torch
+from torch import t
+from torchaudio.transforms import Spectrogram, MelSpectrogram
 
 def set_seed(seed: int = 0) -> None:
     random.seed(seed)
@@ -46,3 +48,24 @@ class CosineScheduler:
 def set_lr(lr, optimizer):
     for param_group in optimizer.param_groups:
         param_group["lr"] = lr
+
+
+def get_meanspect(X, y):
+    melspectgram = MelSpectrogram(sample_rate=1200)
+
+    uniq_list=[]
+    for i, raw in enumerate(y):
+        if raw not in uniq_list:
+            uniq_list.append(raw)
+            tmp=melspectgram(t(X[i,:,:]))
+            if i==0:
+                X_spct0=tmp[:,:,0].unsqueeze(2)
+                X_spct1=tmp[:,:,1].unsqueeze(2)
+            else:
+                X_spct0=torch.cat((X_spct0, tmp[:,:,0].unsqueeze(2)),2)
+                X_spct1=torch.cat((X_spct1, tmp[:,:,1].unsqueeze(2)),2)
+
+    Spct_mean0=torch.mean(X_spct0, 2)
+    Spct_mean1=torch.mean(X_spct1, 2)
+    Spct_mean=torch.cat((Spct_mean0.unsqueeze(2), Spct_mean1.unsqueeze(2)), 2)
+    return Spct_mean

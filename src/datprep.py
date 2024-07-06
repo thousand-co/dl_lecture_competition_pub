@@ -34,12 +34,12 @@ def butter_bandpass_filter(data, lowcut, highcut, fs, order=5):
     y = lfilter(b, a, data)
     return y
 
-class DatAugmentation(torch.utils.data.Dataset):
+class DatPreprocess(torch.utils.data.Dataset):
     def __init__(self, aug_sel='normal'):
         super().__init__()
         self.melspectgram = MelSpectrogram(sample_rate=200)
-        self.melspectgram40hz = MelSpectrogram(sample_rate=200, f_min=0.1, f_max=40)
-        self.melspectgram99hz = MelSpectrogram(sample_rate=200, f_min=0.1, f_max=99)
+        #self.melspectgram40hz = MelSpectrogram(sample_rate=200, f_min=0.1, f_max=40)
+        #self.melspectgram99hz = MelSpectrogram(sample_rate=200, f_min=0.1, f_max=99)
         self.spectgram = Spectrogram()
         self.aug_sel = aug_sel
 
@@ -70,15 +70,6 @@ class DatAugmentation(torch.utils.data.Dataset):
             X = t(X)
             X = F.normalize(X)
             return X.float()
-        elif self.aug_sel=='_bandpass_l':
-            X0=t(torch.tensor(butter_bandpass_filter(t(X), 1, 50, 200)))  # 271x281
-            X1=t(torch.tensor(butter_bandpass_filter(t(X), 50, 99, 200)))
-            X = torch.cat((X0, X1), 0)
-            X = F.adaptive_avg_pool1d(X, 512)
-            X = F.adaptive_avg_pool1d(t(X), 512)
-            X = t(X)
-            X = F.normalize(X)
-            return X.float()
         elif self.aug_sel=='_bandpass_40':
             X0=t(torch.tensor(butter_bandpass_filter(t(X), 0.1, 20, 200)))  # 271x281
             X1=t(torch.tensor(butter_bandpass_filter(t(X), 20, 40, 200)))
@@ -88,44 +79,7 @@ class DatAugmentation(torch.utils.data.Dataset):
             X = t(X)
             X = F.normalize(X)
             return X.float()
-        elif self.aug_sel=='_filter99+spect':
-            X=torch.tensor(butter_bandpass_filter(t(X), 1, 99, 200)).float()
-            X = self.melspectgram(X)  # 281x128x2
-            X0 = t(X[:,:,0])  # 281x128
-            X1 = t(X[:,:,1])  # 281x128
-            X = torch.cat((X0, X1), 0)
-            X = F.adaptive_avg_pool1d(X, 512)
-            X = F.adaptive_avg_pool1d(t(X), 512)
-            X = t(X)
-            X = F.normalize(X)
-            return X.float()
-        elif self.aug_sel=='_spectgram99':
-            X = self.melspectgram99hz(t(X))  # 281x128x2
-            X0 = t(X[:,:,0])  # 281x128
-            X1 = t(X[:,:,1])  # 281x128
-            X = torch.cat((X0, X1), 0)
-            X = F.adaptive_avg_pool1d(X, 512)
-            X = F.adaptive_avg_pool1d(t(X), 512)
-            X = t(X)
-            X = F.normalize(X)
-            return X.float()
-        elif self.aug_sel=='_spectgram40':
-            X = self.melspectgram40hz(t(X))  # 281x128x2
-            X0 = t(X[:,:,0])  # 281x128
-            X1 = t(X[:,:,1])  # 281x128
-            X = torch.cat((X0, X1), 0)
-            X = F.adaptive_avg_pool1d(X, 512)
-            X = F.adaptive_avg_pool1d(t(X), 512)
-            X = t(X)
-            X = F.normalize(X)
-            return X.float()
-        elif self.aug_sel=='_basel_scale_clip':
-            shape=X.shape[1]
-            #resampler=T.Resample(200, 200)
-            #X=resampler(X)
-            X_ave=torch.mean(X[:,:50], axis=1, keepdims=True)
-            X_ave=torch.tile(X_ave, (1,shape))
-            X=X-X_ave
+        elif self.aug_sel=='_scale_clip':
             transformer = RobustScaler().fit(X)
             X=transformer.transform(X)
             X=np.clip(X, -20, 20)
@@ -135,3 +89,5 @@ class DatAugmentation(torch.utils.data.Dataset):
             X = t(X)
             X = F.normalize(X)
             return X.float()
+        else:
+            return X

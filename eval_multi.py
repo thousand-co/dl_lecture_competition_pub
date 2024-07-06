@@ -12,7 +12,7 @@ from tqdm import tqdm
 from src.datasets import ThingsMEGDataset_aug1
 from src.models import BasicConvClassifier
 from src.utils import set_seed
-from src.dataug import DatAugmentation
+from src.datprep import DatPreprocess
 from src.models_res import ResNet, Bottleneck
 
 
@@ -24,16 +24,16 @@ def run(args: DictConfig):
     savedir = os.path.dirname(args.model_path)
     model_path = savedir + '/'
 
-    #model_name='model_best'
-    model_name='model_last'
+    model_name='model_best'
+    #model_name='model_last'
 
     id_list=['_0', '_1', '_2', '_3']
     #aug_list=['_normal', '_spectgram', '_spectgram_log', '_bandpass_l', '_bandpass_h']
     aug_list=['_normal']
     for aug in aug_list:
         for id in id_list:
-            ### Data Augmentation ###
-            transform_test=DatAugmentation(aug_sel=aug)
+            ### Data Pre-process ###
+            transform_test=DatPreprocess(aug_sel=aug)
 
             # ------------------
             #    Dataloader

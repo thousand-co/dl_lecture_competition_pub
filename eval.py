@@ -12,7 +12,7 @@ from tqdm import tqdm
 from src.datasets import ThingsMEGDataset_aug1
 from src.models import BasicConvClassifier
 from src.utils import set_seed
-from src.dataug import DatAugmentation
+from src.datprep import DatPreprocess
 from src.models_res import ResNet, Bottleneck
 
 
@@ -27,7 +27,7 @@ def run(args: DictConfig):
     aug='_normal'
     id='_0'
     ### Data Augmentation ###
-    transform_test=DatAugmentation(aug_sel=aug)
+    transform_test=DatPreprocess(aug_sel=aug)
 
     # ------------------
     #    Dataloader
