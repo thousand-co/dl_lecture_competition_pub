@@ -9,11 +9,12 @@ import wandb
 from termcolor import cprint
 from tqdm import tqdm
 
-from src.datprep import DatPreprocess
+from src.datprep_i import DatPreprocess
 #from src.datasets import ThingsMEGDataset
 from src.datasets import ThingsMEGDataset_aug1
 from src.models import BasicConvClassifier
 from src.models_res import Bottleneck, ResNet
+#from src.models_tran import Classifier
 #from src.models_wres import DoBottleneck, WideResNet
 #from src.models_effnet import EfficientNet_V2
 from src.utils import set_seed, set_lr, CosineScheduler, get_meanspect
@@ -39,13 +40,17 @@ def run(args: DictConfig):
     id_list=['_0', '_1', '_2', '_3']
     #id_list=['_0']
     #aug_list=['_without', '_normal', '_spectgram', '_spectgram_log', '_bandpass_40', '_scale_clip']
-    aug_list=['_without']
+    aug_list=['_normal']
     for aug in aug_list:
         for id in id_list:
             # Data Pre-process
             transform_train=DatPreprocess(aug_sel=aug)
-            transform_valid=DatPreprocess(aug_sel=aug)
-            transform_test=DatPreprocess(aug_sel=aug)
+            #transform_valid=DatPreprocess(aug_sel=aug)
+            #transform_test=DatPreprocess(aug_sel=aug)
+
+            #transform_train = transforms.Compose([transforms.RandomHorizontalFlip(p=1.0),
+            #                          transforms.RandomCrop(32, padding=4, padding_mode='reflect'),
+            #                          transforms.ToTensor(), transforms.Normalize(0,5, 0.5)])
 
             # ------------------
             #    Dataloader
@@ -57,8 +62,8 @@ def run(args: DictConfig):
             #test_set = ThingsMEGDataset("test", args.data_dir, id)
 
             train_set = ThingsMEGDataset_aug1("train", args.data_dir, id, transform=transform_train)
-            val_set = ThingsMEGDataset_aug1("val", args.data_dir, id, transform=transform_valid)
-            test_set = ThingsMEGDataset_aug1("test", args.data_dir, id, transform=transform_test)
+            val_set = ThingsMEGDataset_aug1("val", args.data_dir, id, transform=transform_train)
+            test_set = ThingsMEGDataset_aug1("test", args.data_dir, id, transform=transform_train)
 
             train_loader = torch.utils.data.DataLoader(train_set, shuffle=True, **loader_args)
             val_loader = torch.utils.data.DataLoader(val_set, shuffle=False, **loader_args)
@@ -68,10 +73,10 @@ def run(args: DictConfig):
             #       Model
             # ------------------
             model = BasicConvClassifier(train_set.num_classes, train_set.seq_len, train_set.num_channels).to(args.device)
-
-            #model = ResNet(Bottleneck, [3, 4, 8, 3], num_classes=train_set.num_classes).to(args.device)
-            #model = WideResNet(DoBottleneck, [3, 4, 32, 3], num_classes=train_set.num_classes).to(args.device)  # have error
+            #model = ResNet(Bottleneck, [3, 4, 8 , 3], train_set.num_classes, train_set.seq_len, train_set.num_channels).to(args.device)
+            #model = WideResNet(DoBottleneck, [3, 4, 8, 3], train_set.num_classes, train_set.seq_len, train_set.num_channels).to(args.device)  # have error
             #model = EfficientNet_V2(128).to(args.device)
+            #model = Classifier(train_set.num_classes, train_set.seq_len, train_set.num_channels).to(args.device)
 
             # ------------------
             #     Optimizer

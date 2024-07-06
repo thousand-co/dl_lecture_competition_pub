@@ -16,3 +16,9 @@ submission_bandpass_40.npy: 0.00937
 
 2024-07-04/21-21-25/
 submission_bandpass_40.npy: 0.01077
+
+2024-07-06/18-25-31/
+submission_normal.npy: 0.0143
+
+2024-07-06/20-25-06/
+submission_normal.npy: 0.01497

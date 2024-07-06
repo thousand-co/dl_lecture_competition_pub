@@ -48,6 +48,9 @@ class ThingsMEGDataset_aug1(torch.utils.data.Dataset):
         if split in ["train", "val"]:
             self.y = torch.load(os.path.join(data_dir, f"{split}_y"+id+".pt"))
             assert len(torch.unique(self.y)) == self.num_classes, "Number of classes do not match."
+        
+        self.ch_shape=self.transform(self.X[0]).shape[0]
+        self.seq_shape=self.transform(self.X[0]).shape[1]
 
     def __len__(self) -> int:
         return len(self.X)
@@ -65,10 +68,17 @@ class ThingsMEGDataset_aug1(torch.utils.data.Dataset):
         
     @property
     def num_channels(self) -> int:  #271-->128
-        return 128
+        if self.transform is not None:
+            return self.ch_shape
+        else:
+            return self.X.shape[1]
+        #return 271
         #return self.X.shape[1]
     
     @property
     def seq_len(self) -> int:  #281-->281
-        return 281
+        if self.transform is not None:
+            return self.seq_shape
+        else:
+            return self.X.shape[2]
         #return self.X.shape[2]

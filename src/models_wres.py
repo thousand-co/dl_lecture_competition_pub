@@ -68,14 +68,15 @@ class DoBottleneck(nn.Module):
 # (GAP:Global Average Pooling)
 # 全体のネットワークの定義
 class WideResNet(nn.Module):
-    def __init__(self, block, layers, num_classes=1854):
+    def __init__(self, block, layers, num_classes: int, seq_len: int, in_channels: int):
         super().__init__()
 
-        self.in_channels = 512
+        self.in_channels = in_channels
+        self.out_channels = 256
         self.conv1 = nn.Conv1d(
-            512, self.in_channels, kernel_size=7, stride=2, padding=3, bias=False
+            in_channels, self.out_channels, kernel_size=7, stride=2, padding=3, bias=False
         )
-        self.bn1 = nn.BatchNorm1d(self.in_channels)
+        self.bn1 = nn.BatchNorm1d(self.out_channels)
         self.relu = nn.ReLU(inplace=True)
         # Residual Block は、直前で Max Pooling でダウンサンプリングを行っているので、畳み込みによるダウンサンプリングは不要。
         self.maxpool = nn.MaxPool1d(kernel_size=3, stride=2, padding=1) 

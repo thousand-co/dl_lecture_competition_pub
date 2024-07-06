@@ -37,6 +37,7 @@ class Bottleneck(nn.Module):
         self.conv3 = conv1x1(channels, channels * self.expansion)
         self.bn3 = nn.BatchNorm1d(channels * self.expansion)
         self.relu = nn.ReLU(inplace=True)
+        #self.dropout = nn.Dropout(0.5)
 
         # 入力と出力のチャンネル数が異なる場合、x をダウンサンプリングする。
         # 1×1 の畳み込みを利用して、線形変換を行い、形状を一致させる。
@@ -57,6 +58,8 @@ class Bottleneck(nn.Module):
         out = self.bn2(out)
         out = self.relu(out)
 
+        #out = self.dropout(out)
+
         out = self.conv3(out)
         out = self.bn3(out)
 
@@ -70,14 +73,15 @@ class Bottleneck(nn.Module):
 # (GAP:Global Average Pooling)
 # 全体のネットワークの定義
 class ResNet(nn.Module):
-    def __init__(self, block, layers, num_classes=1854):
+    def __init__(self, block, layers, num_classes: int, seq_len: int, in_channels: int):
         super().__init__()
 
-        self.in_channels = 512
+        self.in_channels = in_channels
+        self.out_channels = 64
         self.conv1 = nn.Conv1d(
-            512, self.in_channels, kernel_size=7, stride=2, padding=3, bias=False
+            in_channels, self.out_channels, kernel_size=3, padding="same", bias=False
         )
-        self.bn1 = nn.BatchNorm1d(self.in_channels)
+        self.bn1 = nn.BatchNorm1d(self.out_channels)
         self.relu = nn.ReLU(inplace=True)
         # Residual Block は、直前で Max Pooling でダウンサンプリングを行っているので、畳み込みによるダウンサンプリングは不要。
         self.maxpool = nn.MaxPool1d(kernel_size=3, stride=2, padding=1) 
