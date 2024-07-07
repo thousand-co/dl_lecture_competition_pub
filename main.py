@@ -12,7 +12,8 @@ from tqdm import tqdm
 from src.datprep_i import DatPreprocess
 #from src.datasets import ThingsMEGDataset
 from src.datasets import ThingsMEGDataset_aug1
-from src.models import BasicConvClassifier
+#from src.models import BasicConvClassifier
+from src.models2 import BasicConvClassifier  # with glu
 from src.models_res import Bottleneck, ResNet
 #from src.models_tran import Classifier
 #from src.models_wres import DoBottleneck, WideResNet
