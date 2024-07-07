@@ -1,4 +1,5 @@
 import os, sys
+os.environ['TF_ENABLE_ONEDNN_OPTS']='0'
 import numpy as np
 import torch
 import torch.nn.functional as F
@@ -8,24 +9,27 @@ from omegaconf import DictConfig
 import wandb
 from termcolor import cprint
 from tqdm import tqdm
+import tensorflow as tf
 
 from src.datprep_i import DatPreprocess
 #from src.datasets import ThingsMEGDataset
 from src.datasets import ThingsMEGDataset_aug1
 #from src.models import BasicConvClassifier
 from src.models2 import BasicConvClassifier  # with glu
-from src.models_res import Bottleneck, ResNet
+from src.models2D import BasicConvClassifier2D  # with glu
+#from src.models_res import Bottleneck, ResNet
 #from src.models_tran import Classifier
 #from src.models_wres import DoBottleneck, WideResNet
 #from src.models_effnet import EfficientNet_V2
 from src.utils import set_seed, set_lr, CosineScheduler, get_meanspect
 
-from torchvision import transforms, models
+#from torchvision import transforms, models
 from torchvision.models import efficientnet_v2_l
-import torchaudio
-import mne
-from scipy.signal import stft
-from sklearn.decomposition import FastICA, PCA
+#import torchaudio
+#import mne
+#from scipy.signal import stft
+#from sklearn.decomposition import FastICA, PCA
+
 
 # hydra:設定管理ライブラリ
 # confディレクトリconfig.yaml設定ファイルを読み込む
@@ -40,8 +44,8 @@ def run(args: DictConfig):
         wandb.init(mode="online", dir=logdir, project="MEG-classification")
     id_list=['_0', '_1', '_2', '_3']
     #id_list=['_0']
-    #aug_list=['_without', '_normal', '_spectgram', '_spectgram_log', '_bandpass_40', '_scale_clip']
-    aug_list=['_normal']
+    #aug_list=['_without', '_normal', '_spectgram', '_spectgram_log', '_bandpass_40', '_scale_clip', '_cwt']
+    aug_list=['_cwt']
     for aug in aug_list:
         for id in id_list:
             # Data Pre-process
@@ -73,7 +77,10 @@ def run(args: DictConfig):
             # ------------------
             #       Model
             # ------------------
-            model = BasicConvClassifier(train_set.num_classes, train_set.seq_len, train_set.num_channels).to(args.device)
+            if aug=='_cwt':
+                model = BasicConvClassifier2D(train_set.num_classes, train_set.seq_len, train_set.num_channels).to(args.device)
+            else:
+                model = BasicConvClassifier(train_set.num_classes, train_set.seq_len, train_set.num_channels).to(args.device)
             #model = ResNet(Bottleneck, [3, 4, 8 , 3], train_set.num_classes, train_set.seq_len, train_set.num_channels).to(args.device)
             #model = WideResNet(DoBottleneck, [3, 4, 8, 3], train_set.num_classes, train_set.seq_len, train_set.num_channels).to(args.device)  # have error
             #model = EfficientNet_V2(128).to(args.device)

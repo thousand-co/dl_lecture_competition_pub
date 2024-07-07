@@ -9,6 +9,8 @@ from scipy.signal import butter, lfilter
 import numpy as np
 from sklearn.preprocessing import RobustScaler
 #import torchaudio.transforms as T
+#from CWT.cwt import ComplexMorletCWT
+from src.cwt import CWT
 
 def quantize_data(data, classes):
     mu_x = mu_law_encoding(data, classes)
@@ -74,5 +76,29 @@ class DatPreprocess(torch.utils.data.Dataset):
             X=torch.tensor(X)  # 271x281
             X = F.normalize(X)
             return X.float()
+        elif self.aug_sel=='_cwt':
+            x_ten = torch.tensor(X, dtype=torch.float32).clone().detach().unsqueeze(0)
+            pycwt = CWT(fmin=1, fmax=40, hop_length=5, dt=1/200)
+            out = pycwt(x_ten).squeeze(0)
+            return out
         else:
             return X
+        
+'''
+        elif self.aug_sel=='_cwt':
+            prepared_signal = X.reshape((1, -1, 1))
+            fs = 200
+            lower_freq = 1
+            upper_freq = 40
+            n_scales = 42
+            wavelet_width = 1
+            cwt = ComplexMorletCWT(wavelet_width, fs, lower_freq, upper_freq, n_scales, border_crop=0, stride=5)
+            np_scalogram = cwt(prepared_signal)
+            scalogram_real = np_scalogram[0, :, :, 0]
+            scalogram_imag = np_scalogram[0, :, :, 1]
+            scalogram_magn = np.sqrt(scalogram_real ** 2 + scalogram_imag ** 2)
+            scalogram_magn = torch.tensor(scalogram_magn)
+            return scalogram_magn
+        else:
+            return X
+'''
