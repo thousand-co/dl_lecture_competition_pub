@@ -49,6 +49,14 @@ class DatPreprocess(torch.utils.data.Dataset):
         if self.aug_sel=='_normal':
             X = F.normalize(X)
             return X.float()
+        elif self.aug_sel=='_baseline':
+            shape = X.shape[1]  # 281x128x2
+            X_ave=torch.mean(X[:,:28], axis=1, keepdims=True)
+            X_ave=torch.tile(X_ave, (1,shape))
+            X=X-X_ave
+            #X=torch.clip(X, -20, 20)
+            X=F.normalize(X)
+            return X.float()
         elif self.aug_sel=='_spectgram':
             X = self.melspectgram(t(X))  # 281x128x2
             X0 = t(X[:,:,0])  # 281x128
@@ -77,7 +85,8 @@ class DatPreprocess(torch.utils.data.Dataset):
             X = F.normalize(X)
             return X.float()
         elif self.aug_sel=='_cwt':
-            x_ten = torch.tensor(X, dtype=torch.float32).clone().detach().unsqueeze(0)
+            # hop_length=1はメモリ不足で実行不可,5は可
+            x_ten = X.unsqueeze(0)
             pycwt = CWT(fmin=1, fmax=40, hop_length=5, dt=1/200)
             out = pycwt(x_ten).squeeze(0)
             return out

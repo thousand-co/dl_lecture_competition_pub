@@ -80,3 +80,43 @@ class ConvBlock(nn.Module):
         X = F.glu(X, dim=-2)  # glu's output dim will be 1/2
 
         return self.dropout2(X)
+
+
+class MEGnetClassifier(nn.Module):
+    def __init__(
+        self,
+        num_classes: int,
+        seq_len: int,
+        in_channels: int,
+        hid_dim: int = 1024,
+        kernel_size: int = 3,
+        p_drop: float = 0.5,
+    ) -> None:
+        super().__init__()
+
+        self.blocks = nn.Sequential(
+            nn.Conv1d(in_channels, hid_dim, kernel_size, padding="same"),
+            nn.BatchNorm1d(num_features=hid_dim),
+            nn.Conv1d(hid_dim, hid_dim, kernel_size, padding="same", groups=hid_dim),
+            nn.BatchNorm1d(num_features=hid_dim),
+            nn.ELU(),
+            nn.AdaptiveAvgPool1d(1),
+            nn.Dropout(p_drop),
+            nn.Conv1d(hid_dim, hid_dim, 1, padding="same", groups=1),
+            nn.BatchNorm1d(num_features=hid_dim),
+            nn.ELU(),
+            nn.AdaptiveAvgPool1d(1),
+            nn.Dropout(p_drop),
+            nn.Flatten(),
+            nn.Linear(hid_dim, num_classes),
+            nn.GELU()
+        )
+
+    def forward(self, X: torch.Tensor) -> torch.Tensor:
+        """_summary_
+        Args:
+            X ( b, c, t ): _description_
+        Returns:
+            X ( b, num_classes ): _description_
+        """
+        return self.blocks(X)

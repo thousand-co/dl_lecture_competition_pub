@@ -15,7 +15,7 @@ from src.datprep_i import DatPreprocess
 #from src.datasets import ThingsMEGDataset
 from src.datasets import ThingsMEGDataset_aug1
 #from src.models import BasicConvClassifier
-from src.models2 import BasicConvClassifier  # with glu
+from src.models2 import BasicConvClassifier, MEGnetClassifier  # with glu
 from src.models2D import BasicConvClassifier2D  # with glu
 #from src.models_res import Bottleneck, ResNet
 #from src.models_tran import Classifier
@@ -44,8 +44,8 @@ def run(args: DictConfig):
         wandb.init(mode="online", dir=logdir, project="MEG-classification")
     id_list=['_0', '_1', '_2', '_3']
     #id_list=['_0']
-    #aug_list=['_without', '_normal', '_spectgram', '_spectgram_log', '_bandpass_40', '_scale_clip', '_cwt']
-    aug_list=['_cwt']
+    #aug_list=['_without', '_normal', '_baseline', '_spectgram', '_spectgram_log', '_bandpass_40', '_scale_clip', '_cwt']
+    aug_list=['_baseline']
     for aug in aug_list:
         for id in id_list:
             # Data Pre-process
@@ -70,9 +70,9 @@ def run(args: DictConfig):
             val_set = ThingsMEGDataset_aug1("val", args.data_dir, id, transform=transform_train)
             test_set = ThingsMEGDataset_aug1("test", args.data_dir, id, transform=transform_train)
 
-            train_loader = torch.utils.data.DataLoader(train_set, shuffle=True, **loader_args)
-            val_loader = torch.utils.data.DataLoader(val_set, shuffle=False, **loader_args)
-            test_loader = torch.utils.data.DataLoader(test_set, shuffle=False, **loader_args)
+            train_loader = torch.utils.data.DataLoader(train_set, shuffle=True, **loader_args, pin_memory=True)
+            val_loader = torch.utils.data.DataLoader(val_set, shuffle=False, **loader_args, pin_memory=True)
+            test_loader = torch.utils.data.DataLoader(test_set, shuffle=False, **loader_args, pin_memory=True)
 
             # ------------------
             #       Model
@@ -81,10 +81,11 @@ def run(args: DictConfig):
                 model = BasicConvClassifier2D(train_set.num_classes, train_set.seq_len, train_set.num_channels).to(args.device)
             else:
                 model = BasicConvClassifier(train_set.num_classes, train_set.seq_len, train_set.num_channels).to(args.device)
-            #model = ResNet(Bottleneck, [3, 4, 8 , 3], train_set.num_classes, train_set.seq_len, train_set.num_channels).to(args.device)
-            #model = WideResNet(DoBottleneck, [3, 4, 8, 3], train_set.num_classes, train_set.seq_len, train_set.num_channels).to(args.device)  # have error
-            #model = EfficientNet_V2(128).to(args.device)
-            #model = Classifier(train_set.num_classes, train_set.seq_len, train_set.num_channels).to(args.device)
+                #model = MEGnetClassifier(train_set.num_classes, train_set.seq_len, train_set.num_channels).to(args.device)
+                #model = ResNet(Bottleneck, [3, 4, 8 , 3], train_set.num_classes, train_set.seq_len, train_set.num_channels).to(args.device)
+                #model = WideResNet(DoBottleneck, [3, 4, 8, 3], train_set.num_classes, train_set.seq_len, train_set.num_channels).to(args.device)  # have error
+                #model = EfficientNet_V2(128).to(args.device)
+                #model = Classifier(train_set.num_classes, train_set.seq_len, train_set.num_channels).to(args.device)
 
             # ------------------
             #     Optimizer
@@ -107,24 +108,32 @@ def run(args: DictConfig):
 
                 new_lr = scheduler(epoch)
                 set_lr(new_lr, optimizer)
-                
+
                 train_loss, train_acc, val_loss, val_acc = [], [], [], []
                 
                 model.train()
+                scaler = torch.cuda.amp.GradScaler()  # added
                 for X, y in tqdm(train_loader, desc="Train"):
                     X, y = X.to(args.device), y.to(args.device)
 
-                    y_pred = model(X)
-                    
-                    loss = F.cross_entropy(y_pred, y)
+                    with torch.cuda.amp.autocast():
+                        y_pred = model(X)
+                        loss = F.cross_entropy(y_pred, y)
+
                     train_loss.append(loss.item())
                     
                     optimizer.zero_grad()
-                    loss.backward()
-                    optimizer.step()
-                    
+
+                    #loss.backward()
+                    scaler.scale(loss).backward()  # added
+
+                    #optimizer.step()
+                    scaler.step(optimizer)  # added
+
                     acc = accuracy(y_pred, y)
                     train_acc.append(acc.item())
+ 
+                    scaler.update()  # added
 
                 model.eval()
                 for X, y in tqdm(val_loader, desc="Validation"):

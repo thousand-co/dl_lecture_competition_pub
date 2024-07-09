@@ -10,19 +10,19 @@ class BasicConvClassifier2D(nn.Module):
         num_classes: int,
         seq_len: int,
         in_channels: int,
-        hid_dim: int = 1024
+        hid_dim: int = 256
     ) -> None:
         super().__init__()
 
         self.blocks = nn.Sequential(
             ConvBlock2D(in_channels, hid_dim),
-            ConvBlock2D(int(hid_dim/2), int(hid_dim/2)),  # 7/7 hid_dim-->hid_dim/2
+            ConvBlock2D(int(hid_dim), int(hid_dim)),  # 7/7 hid_dim-->hid_dim/2
         )
 
         self.head = nn.Sequential(
-            nn.AdaptiveAvgPool1d(1),
-            Rearrange("b d 1 -> b d"),
-            nn.Linear(int(hid_dim/4), num_classes),  # 7/7 hid_dim-->hid_dim/4
+            nn.AdaptiveAvgPool2d(1),
+            Rearrange("b d 1 1 -> b d"),  # batch dim 1 --> batch dim
+            nn.Linear(int(hid_dim), num_classes),  # 7/7 hid_dim-->hid_dim/4
         )
 
     def forward(self, X: torch.Tensor) -> torch.Tensor:
@@ -52,13 +52,13 @@ class ConvBlock2D(nn.Module):
 
         self.conv0 = nn.Conv2d(in_dim, out_dim, kernel_size, padding="same")
         self.conv1 = nn.Conv2d(out_dim, out_dim, kernel_size, padding="same")
-        self.conv2 = nn.Conv2d(out_dim, out_dim, kernel_size, padding="same")
+        #self.conv2 = nn.Conv2d(out_dim, out_dim, kernel_size, padding="same")
         
         self.batchnorm0 = nn.BatchNorm2d(num_features=out_dim)
         self.batchnorm1 = nn.BatchNorm2d(num_features=out_dim)
 
         self.dropout0 = nn.Dropout2d(p_drop)
-        self.dropout1 = nn.Dropout2d(p_drop)
+        #self.dropout1 = nn.Dropout2d(p_drop)
         self.dropout2 = nn.Dropout2d(p_drop)
 
     def forward(self, X: torch.Tensor) -> torch.Tensor:
@@ -74,9 +74,9 @@ class ConvBlock2D(nn.Module):
         X = self.conv1(X) + X  # skip connection
         X = F.gelu(self.batchnorm1(X))
 
-        X = self.dropout1(X)
+        #X = self.dropout1(X)
 
-        X = self.conv2(X)
-        X = F.glu(X, dim=-2)  # glu's output dim will be 1/2
+        #X = self.conv2(X)
+        #X = F.glu(X, dim=-2)  # glu's output dim will be 1/2
 
         return self.dropout2(X)

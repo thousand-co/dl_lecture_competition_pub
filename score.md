@@ -25,3 +25,12 @@ submission_normal.npy: 0.01497
 
 2024-07-07/11-45-39/
 submission_normal.npy: 0.01534
+
+2024-07-09/18-03-57/
+submission_bandpass_40.npy: 0.01278
+
+2024-07-09/20-45-23/  mode=MEGnet
+submission_normal.npy:
+
+2024-07-09/21-46-48/  mode=baseline
+submission_baseline.npy: 0.01613
