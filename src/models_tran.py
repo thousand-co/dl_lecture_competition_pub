@@ -335,6 +335,138 @@ class MAE_Encoder(nn.Module):
         return features, backward_indexes
 
 
+class MAE_Decoder(nn.Module):
+    def __init__(self, image_size=[32, 32], patch_size=[2, 2], emb_dim=192, num_layer=4,
+                 heads=3, dim_head=64, mlp_dim=192, dropout=0.):
+        """
+        Arguments
+        ---------
+
+        image_size : List[int]
+            入力画像の大きさ．
+        patch_size : List[int]
+            各パッチの大きさ．
+        emb_dim : int
+            データを埋め込む次元の数．
+        num_layer : int
+            Decoderに含まれるBlockの数．
+        heads : int
+            Multi-Head Attentionのヘッドの数．
+        dim_head : int
+            Multi-Head Attentionの各ヘッドの次元数．
+        mlp_dim : int
+            Feed-Forward Networkの隠れ層の次元数．
+        dropout : float
+            ドロップアウトの確率．
+        """
+        super().__init__()
+        img_height, img_width = image_size
+        patch_height, patch_width = patch_size
+        num_patches = (img_height // patch_height) * (img_width // patch_width)
+
+        self.mask_token = torch.nn.Parameter(torch.rand(1, 1, emb_dim))
+        self.pos_embedding = torch.nn.Parameter(torch.rand(1, num_patches+1, emb_dim))
+
+        # Decoder(Blockを重ねる）
+        self.transformer = torch.nn.Sequential(*[Block(emb_dim, heads, dim_head, mlp_dim, dropout) for _ in range(num_layer)])
+
+        # 埋め込みされた表現から画像を復元するためのhead
+        self.head = torch.nn.Linear(emb_dim, 3 * patch_height * patch_width)
+        # (B, N, dim)から(B, C, H, W)にreshapeするためのインスタンス
+        self.patch2img = Rearrange("b (h w) (c p1 p2) -> b c (h p1) (w p2)", p1=patch_height, p2=patch_width, h=img_height // patch_height)
+
+        self.init_weight()
+
+    def init_weight(self):
+        torch.nn.init.normal_(self.mask_token, std=0.02)
+        torch.nn.init.normal_(self.pos_embedding, std=0.02)
+
+    def forward(self, features, backward_indexes):
+        # 系列長
+        T = features.shape[1]
+
+        # class tokenがある分backward_indexesの最初に0を追加する
+        # .toはデバイスの変更でよく利用するが，tensorを渡すことでdtypeを変えることができる
+        backward_indexes = torch.cat([torch.zeros(backward_indexes.shape[0], 1).to(backward_indexes), backward_indexes+1], dim=1)
+
+        # 1. mask_tokenを結合して並べ替える．
+        # (B, N*(1-mask_ratio)+1, dim) -> (B, N+1, dim)
+        features = torch.cat([features, self.mask_token.repeat(features.shape[0], backward_indexes.shape[1] - features.shape[1], 1)], dim=1)
+        features = take_indexes(features, backward_indexes)
+        features = features + self.pos_embedding
+
+        features = self.transformer(features)
+
+        # class tokenを除去する
+        # (B, N+1, dim) -> (B, N, dim)
+        features = features[:, 1:, :]
+
+        # 2. 画像を再構成する．
+        # (B, N, dim) -> (B, N, 3 * patch_height * patch_width)
+        patches = self.head(features)
+
+        # MAEではマスクした部分でのみ損失関数を計算するため，maskも一緒に返す
+        mask = torch.zeros_like(patches)
+        mask[:, T-1:] = 1  # cls tokenを含めていた分ずらしている
+        mask = take_indexes(mask, backward_indexes[:, 1:] - 1)
+
+        img = self.patch2img(patches)
+        mask = self.patch2img(mask)
+
+        return img, mask
+
+
+class MAE_ViT(nn.Module):
+    def __init__(self, image_size=[32, 32], patch_size=[2, 2], emb_dim=192,
+                 enc_layers=12, enc_heads=3, enc_dim_head=64, enc_mlp_dim=768,
+                 dec_layers=4, dec_heads=3, dec_dim_head=64, dec_mlp_dim=768,
+                 mask_ratio=0.75, dropout=0.):
+        """
+        Arguments
+        ---------
+        image_size : List[int]
+            入力画像の大きさ．
+        patch_size : List[int]
+            各パッチの大きさ．
+        emb_dim : int
+            データを埋め込む次元の数．
+        {enc/dec}_layers : int
+            Encoder / Decoderに含まれるBlockの数．
+        {enc/dec}_heads : int
+            Encoder / DecoderのMulti-Head Attentionのヘッドの数．
+        {enc/dec}_dim_head : int
+            Encoder / DecoderのMulti-Head Attentionの各ヘッドの次元数．
+        {enc/dec}_mlp_dim : int
+            Encoder / DecoderのFeed-Forward Networkの隠れ層の次元数．
+        mask_ratio : float
+            入力パッチのマスクする割合．
+        dropout : float
+            ドロップアウトの確率．
+        """
+        super().__init__()
+
+        self.encoder = MAE_Encoder(image_size, patch_size, emb_dim, enc_layers,
+                                   enc_heads, enc_dim_head, enc_mlp_dim, mask_ratio, dropout)
+        self.decoder = MAE_Decoder(image_size, patch_size, emb_dim, dec_layers,
+                                   dec_heads, dec_dim_head, dec_mlp_dim, dropout)
+
+    def forward(self, img):
+        features, backward_indexes = self.encoder(img)
+        rec_img, mask = self.decoder(features, backward_indexes)
+        return rec_img, mask
+
+    def get_last_selfattention(self, x):
+        patches = self.encoder.patchify(x)
+        patches = patches + self.encoder.pos_embedding
+
+        patches = torch.cat([self.encoder.cls_token.repeat(patches.shape[0], 1, 1), patches], dim=1)  # class tokenを結合
+        for i, block in enumerate(self.encoder.transformer):
+            if i < len(self.encoder.transformer) - 1:
+                patches = block(patches)
+            else:
+                return block(patches, return_attn=True)
+
+
 # クラス分類器
 class Classifier(nn.Module):
     def __init__(self, encoder: MAE_Encoder, num_classes=10):
