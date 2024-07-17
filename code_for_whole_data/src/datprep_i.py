@@ -1,6 +1,6 @@
 import torch
 #from  torchvision.transforms import v2
-#from torchvision import transforms
+from torchvision import transforms
 from torchaudio.transforms import Spectrogram, MelSpectrogram
 #import torch.nn as nn
 from torch import t
@@ -54,6 +54,18 @@ class DatPreprocess(torch.utils.data.Dataset):
             X=X-X_ave
             #X=torch.clip(X, -20, 20)
             X=F.normalize(X)
+            return X.float()
+        elif self.aug_sel=='_baseline_resize':
+            shape = X.shape[1]  # 281x128x2
+            X_ave=torch.mean(X[:,:28], axis=1, keepdims=True)
+            X_ave=torch.tile(X_ave, (1,shape))
+            X=X-X_ave
+            #X=torch.clip(X, -20, 20)
+            tmp1=torch.zeros((271,9))
+            tmp2=torch.zeros((19,290))
+            X=torch.cat((X,tmp1), dim=1)
+            X=torch.cat((X,tmp2), dim=0)
+            X=F.normalize(X).unsqueeze(0)
             return X.float()
         elif self.aug_sel=='_spectgram':
             X = self.melspectgram(t(X))  # 281x128x2
